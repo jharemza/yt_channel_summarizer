@@ -1,0 +1,49 @@
+# --- Virtual env & secrets ---
+.venv/
+.env
+.env.*
+
+# --- Python artifacts ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# --- Caches & tooling ---
+.cache/
+.mypy_cache/
+.pytype/
+pytest_cache/
+.coverage
+htmlcov/
+
+# --- Editors/IDE ---
+.vscode/
+.idea/
+*.code-workspace
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+
+# --- Data control (commit manifest; ignore heavy transcripts) ---
+data/raw/transcripts/**
+!data/raw/transcripts/.gitkeep
+data/raw/transcripts.jsonl
+
+# Keep processed dir structure but not outputs
+data/processed/**
+!data/processed/.gitkeep

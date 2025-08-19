@@ -1,0 +1,35 @@
+# Summarizer config
+provider: openai
+model: gpt-4o-mini
+temperature: 0.2
+max_output_tokens: 800
+
+# Chunking
+chunk_size_tokens: 2000
+chunk_overlap_tokens: 200
+
+# I/O
+input_jsonl: data/raw/transcripts.jsonl
+output_csv: data/processed/summaries.csv
+output_md: data/processed/summaries.md
+
+# Concurrency / throttling (tune later if needed)
+concurrency: 2
+rate_limit_rps: 2
+
+# Prompt templates (used by summarize.py)
+map_prompt: |
+  You are a precise technical summarizer. Summarize the following transcript CHUNK
+  into 3–6 bullet points capturing concrete facts, numbers, named entities, and key claims.
+  Avoid fluff. Keep to ~120–180 words.
+  ---
+  {chunk_text}
+
+reduce_prompt: |
+  You will receive multiple bullet-point summaries that each cover a chunk of a single video.
+  Merge them into a single coherent summary:
+  - 6–10 bullets total
+  - Preserve important numbers/entities/claims
+  - Remove redundancy
+  - Add a one-line "TL;DR" at the top
+  Provide: TL;DR, then bullets.
