@@ -43,6 +43,7 @@ Thumbs.db
 data/raw/transcripts/**
 !data/raw/transcripts/.gitkeep
 data/raw/transcripts.jsonl
+data/raw/manifest.csv
 
 # Keep processed dir structure but not outputs
 data/processed/**
