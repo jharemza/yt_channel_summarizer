@@ -87,8 +87,17 @@ def list_channel_videos(channel_url: str, max_videos: Optional[int] = None) -> L
     ydl = _ydl()
     info = ydl.extract_info(channel_url, download=False)
 
-    # If user passes a channel URL, yt-dlp often returns a "playlist" of entries = videos.
-    entries = info.get("entries", []) if isinstance(info, dict) else []
+    # --- normalize & clean ---
+    if isinstance(info, dict) and ("entries" in info):
+        # channel/playlist case; entries might be [] or contain junk
+        entries = info["entries"] or []
+    else:
+        # single-video case (or defensive fallback)
+        entries = [info] if info is not None else []
+
+    # Clean: keep only dicts that actually have an 'id'
+    entries = [e for e in entries if isinstance(e, dict) and e.get("id")]
+
     videos: List[VideoMeta] = []
 
     for e in entries:
