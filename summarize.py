@@ -254,6 +254,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--config", default="config/summarizer.yaml", help="Path to YAML config.")
     p.add_argument("--limit", type=int, default=None, help="Only process first N transcripts.")
     p.add_argument("--resume", action="store_true", help="Skip videos already present in output CSV.")
+    p.add_argument("--ids", help="Comma-separated video IDs to summarize (filters transcripts.jsonl)")
     return p.parse_args()
 
 def main():
@@ -294,6 +295,9 @@ def main():
     records = list(iter_jsonl(in_path))
     if args.limit:
         records = records[: args.limit]
+    if args.ids:
+        target = {s.strip() for s in args.ids.split(",") if s.strip()}
+        records = [r for r in records if r.get("meta", {}).get("id", "") in target]
 
     for rec in tqdm(records, desc="Summarizing"):
         vid = rec.get("meta", {}).get("id", "")
