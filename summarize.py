@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from __future__ import annotations
 
 import argparse
@@ -8,24 +9,23 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Tuple
 
-# deps
 import orjson
+import tiktoken
 import yaml
 from dotenv import load_dotenv
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 from tqdm import tqdm
-
-import tiktoken
 
 try:
     from openai import OpenAI
-except Exception as e:  # pragma: no cover
+except Exception:  # pragma: no cover
     print("OpenAI client not installed. Run: pip install -U openai", file=sys.stderr)
     raise
 
 # ---------- Config & models ----------
+
 
 @dataclass
 class Config:
@@ -42,6 +42,7 @@ class Config:
     rate_limit_rps: float
     map_prompt: str
     reduce_prompt: str
+
 
 def load_config(path: Path) -> Config:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -64,7 +65,9 @@ def load_config(path: Path) -> Config:
         reduce_prompt=data["reduce_prompt"],
     )
 
+
 # ---------- IO helpers ----------
+
 
 def iter_jsonl(path: Path) -> Iterable[dict]:
     with path.open("r", encoding="utf-8") as f:
@@ -74,10 +77,13 @@ def iter_jsonl(path: Path) -> Iterable[dict]:
                 continue
             yield orjson.loads(line)
 
+
 def ensure_dirs(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
+
 # ---------- Tokenization & chunking ----------
+
 
 def get_encoder_for_model(model: str):
     # try model-specific; fallback to cl100k_base
@@ -85,6 +91,7 @@ def get_encoder_for_model(model: str):
         return tiktoken.encoding_for_model(model)
     except Exception:
         return tiktoken.get_encoding("cl100k_base")
+
 
 def chunk_text_by_tokens(text: str, chunk_size: int, overlap: int, enc) -> List[str]:
     if not text:
@@ -102,13 +109,17 @@ def chunk_text_by_tokens(text: str, chunk_size: int, overlap: int, enc) -> List[
         start = max(end - overlap, 0)
     return chunks
 
+
 # ---------- OpenAI calls ----------
+
 
 class RateLimiter:
     """Very simple client-side throttle."""
+
     def __init__(self, rps: float):
         self.min_interval = 1.0 / max(rps, 1e-6)
         self._last = 0.0
+
     def wait(self):
         now = time.perf_counter()
         delta = now - self._last
@@ -116,12 +127,15 @@ class RateLimiter:
             time.sleep(self.min_interval - delta)
         self._last = time.perf_counter()
 
+
 def build_client() -> OpenAI:
     # OpenAI client uses OPENAI_API_KEY from env
     return OpenAI()
 
+
 class TransientLLMError(Exception):
     pass
+
 
 @retry(
     reraise=True,
@@ -129,7 +143,9 @@ class TransientLLMError(Exception):
     wait=wait_exponential(multiplier=1, min=1, max=20),
     retry=retry_if_exception_type(TransientLLMError),
 )
-def chat_complete(client: OpenAI, model: str, system: str, user: str, temperature: float, max_output_tokens: int) -> str:
+def chat_complete(
+    client: OpenAI, model: str, system: str, user: str, temperature: float, max_output_tokens: int
+) -> str:
     try:
         resp = client.chat.completions.create(
             model=model,
@@ -140,15 +156,22 @@ def chat_complete(client: OpenAI, model: str, system: str, user: str, temperatur
             ],
             max_tokens=max_output_tokens,
         )
-        return resp.choices[0].message.content.strip()
+        content = resp.choices[0].message.content or ""
+        return content.strip()
     except Exception as e:
         # treat as transient to retry
-        raise TransientLLMError(str(e))
+        raise TransientLLMError(str(e)) from e
+
 
 # ---------- Summarization pipeline ----------
 
-SYSTEM_MAP = "You are a precise technical summarizer. Output only the requested bullets; no preamble."
-SYSTEM_REDUCE = "You are a careful editor. Merge bullets into one coherent summary per instructions."
+SYSTEM_MAP = (
+    "You are a precise technical summarizer. Output only the requested bullets; no preamble."
+)
+SYSTEM_REDUCE = (
+    "You are a careful editor. Merge bullets into one coherent summary per instructions."
+)
+
 
 def summarize_one_video(
     record: dict,
@@ -160,7 +183,6 @@ def summarize_one_video(
     """
     Returns (tldr, bullets_markdown) for a single transcript record.
     """
-    meta = record.get("meta", {})
     text = (record.get("text") or "").strip()
     if not text:
         return "", ""
@@ -218,7 +240,9 @@ def summarize_one_video(
 
     return tldr, bullets_md
 
+
 # ---------- CSV/MD writers ----------
+
 
 def append_csv(path: Path, header: List[str], rows: List[List[str]]) -> None:
     ensure_dirs(path)
@@ -230,12 +254,14 @@ def append_csv(path: Path, header: List[str], rows: List[List[str]]) -> None:
         for r in rows:
             w.writerow(r)
 
+
 def append_md(path: Path, block: str) -> None:
     ensure_dirs(path)
     with path.open("a", encoding="utf-8") as f:
         f.write(block)
         if not block.endswith("\n"):
             f.write("\n")
+
 
 def already_done_ids(csv_path: Path) -> set[str]:
     if not csv_path.exists():
@@ -247,15 +273,22 @@ def already_done_ids(csv_path: Path) -> set[str]:
             out.add(row.get("id", ""))
     return out
 
+
 # ---------- Main ----------
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Summarize transcripts.jsonl into CSV/Markdown.")
     p.add_argument("--config", default="config/summarizer.yaml", help="Path to YAML config.")
     p.add_argument("--limit", type=int, default=None, help="Only process first N transcripts.")
-    p.add_argument("--resume", action="store_true", help="Skip videos already present in output CSV.")
-    p.add_argument("--ids", help="Comma-separated video IDs to summarize (filters transcripts.jsonl)")
+    p.add_argument(
+        "--resume", action="store_true", help="Skip videos already present in output CSV."
+    )
+    p.add_argument(
+        "--ids", help="Comma-separated video IDs to summarize (filters transcripts.jsonl)"
+    )
     return p.parse_args()
+
 
 def main():
     load_dotenv()
@@ -309,17 +342,19 @@ def main():
         tldr, bullets_md = summarize_one_video(rec, cfg, client, enc, throttle)
 
         meta = rec.get("meta", {})
-        rows_batch.append([
-            meta.get("id", ""),
-            meta.get("title", ""),
-            meta.get("url", ""),
-            meta.get("upload_date", ""),
-            str(meta.get("duration", "")),
-            rec.get("language", ""),
-            str(rec.get("is_generated", "")),
-            tldr,
-            bullets_md,
-        ])
+        rows_batch.append(
+            [
+                meta.get("id", ""),
+                meta.get("title", ""),
+                meta.get("url", ""),
+                meta.get("upload_date", ""),
+                str(meta.get("duration", "")),
+                rec.get("language", ""),
+                str(rec.get("is_generated", "")),
+                tldr,
+                bullets_md,
+            ]
+        )
 
         # Append to MD file as a section
         md_block = f"""# {meta.get('title','(untitled)')}
@@ -345,6 +380,7 @@ def main():
         append_csv(out_csv, header, rows_batch)
 
     print(f"Done. Wrote: {out_csv} and {out_md}")
+
 
 if __name__ == "__main__":
     main()
