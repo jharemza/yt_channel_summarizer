@@ -12,19 +12,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import yt_dlp
 from youtube_transcript_api import (
     YouTubeTranscriptApi,
-    TranscriptsDisabled,
-    NoTranscriptFound,
-    VideoUnavailable,
 )
-import yt_dlp
 
 
 # ----------------------------
@@ -113,7 +109,7 @@ def list_channel_videos(channel_url: str, max_videos: Optional[int] = None) -> L
                 url=url,
                 uploader=e.get("uploader"),
                 upload_date=e.get("upload_date"),  # YYYYMMDD or None
-                duration=e.get("duration"),        # seconds or None
+                duration=e.get("duration"),  # seconds or None
                 view_count=e.get("view_count"),
             )
         )
@@ -207,6 +203,7 @@ def pick_transcript_variant(video_id: str, preferred_langs: list[str]) -> dict |
     except Exception:
         return None
 
+
 def segments_to_text(segments: List[Dict]) -> str:
     # Concatenate lines; strip extra whitespace
     lines = []
@@ -290,11 +287,20 @@ def fetch_and_store(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Dump YouTube channel videos + transcripts")
-    p.add_argument("channel_url", help="YouTube channel or playlist URL (e.g., https://www.youtube.com/@handle)")
+    p.add_argument(
+        "channel_url",
+        help="YouTube channel or playlist URL (e.g., https://www.youtube.com/@handle)",
+    )
     p.add_argument("--out", default=".", help="Project root (default: current dir)")
-    p.add_argument("--langs", default="en,en-US,en-GB", help="Preferred languages (comma-separated)")
-    p.add_argument("--max", type=int, default=None, help="Max number of videos to process (default: all)")
-    p.add_argument("--delay", type=float, default=0.4, help="Delay between transcript fetches (seconds)")
+    p.add_argument(
+        "--langs", default="en,en-US,en-GB", help="Preferred languages (comma-separated)"
+    )
+    p.add_argument(
+        "--max", type=int, default=None, help="Max number of videos to process (default: all)"
+    )
+    p.add_argument(
+        "--delay", type=float, default=0.4, help="Delay between transcript fetches (seconds)"
+    )
     return p.parse_args()
 
 

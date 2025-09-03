@@ -5,11 +5,13 @@ target-version = ["py312"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Directories to include/exclude as needed
+exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
 # Lint rule sets: pyflakes/pycodestyle errors, isort, bugbear, comprehensions, etc.
 select = ["E", "F", "W", "I", "B", "C4"]
 ignore = []
-# Directories to include/exclude as needed
-exclude = ["build", "dist", ".venv"]
 
 [tool.ruff.format]
 # Keep black as the formatter; ruff won't format if you don’t call `ruff format`.
