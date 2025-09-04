@@ -25,7 +25,6 @@ jobs:
       - name: Lint (ruff)
         run: |
           ruff check .
-          ruff format --check .
 
       - name: Format check (black)
         run: black --check .
