@@ -1,5 +1,3 @@
-import pytest
-
 from summarize import chunk_text_by_tokens
 
 

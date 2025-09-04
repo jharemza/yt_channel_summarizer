@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from channel_dump import ensure_dirs as cd_ensure_dirs
 from summarize import ensure_dirs as sum_ensure_dirs
 
