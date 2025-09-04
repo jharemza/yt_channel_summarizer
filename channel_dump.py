@@ -15,7 +15,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yt_dlp
 from youtube_transcript_api import (
@@ -105,7 +105,7 @@ def list_channel_videos(channel_url: str, max_videos: Optional[int] = None) -> L
         videos.append(
             VideoMeta(
                 id=vid,
-                title=e.get("title"),
+                title=e.get("title", ""),
                 url=url,
                 uploader=e.get("uploader"),
                 upload_date=e.get("upload_date"),  # YYYYMMDD or None
@@ -126,14 +126,14 @@ def pick_transcript_variant(video_id: str, preferred_langs: list[str]) -> dict |
     """
     # Try the new instance API first (v1.2+)
     try:
-        api = YouTubeTranscriptApi()  # new API uses an instance with .list() / .fetch()
-        has_new_api = hasattr(api, "list") and hasattr(api, "fetch")
+        api = YouTubeTranscriptApi()  # v1.2+: instance exposes .list()
+        has_new_api = hasattr(api, "list")
     except TypeError:
         has_new_api = False
 
     if has_new_api:
         try:
-            tx_list = api.list(video_id)
+            tx_list: Any = api.list(video_id)
         except Exception:
             return None
 
@@ -168,7 +168,7 @@ def pick_transcript_variant(video_id: str, preferred_langs: list[str]) -> dict |
     list_fn = getattr(YouTubeTranscriptApi, "list_transcripts", None)
     if callable(list_fn):
         try:
-            tx_list = list_fn(video_id)
+            tx_list: Any = list_fn(video_id)
         except Exception:
             return None
 
@@ -191,14 +191,15 @@ def pick_transcript_variant(video_id: str, preferred_langs: list[str]) -> dict |
             return None
 
     # Last resort: very old get_transcript signature
+    Api: Any = YouTubeTranscriptApi
     for lang in preferred_langs:
         try:
-            segs = YouTubeTranscriptApi.get_transcript(video_id, languages=[lang])
+            segs = Api.get_transcript(video_id, languages=[lang])
             return {"lang": lang, "is_generated": None, "segments": segs}
         except Exception:
             pass
     try:
-        segs = YouTubeTranscriptApi.get_transcript(video_id)
+        segs = Api.get_transcript(video_id)
         return {"lang": None, "is_generated": None, "segments": segs}
     except Exception:
         return None
