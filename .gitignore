@@ -48,3 +48,6 @@ data/raw/manifest.csv
 # Keep processed dir structure but not outputs
 data/processed/**
 !data/processed/.gitkeep
+# Plain-text transcript exports
+data/transcript_text/**
+!data/transcript_text/.gitkeep
