@@ -1,16 +1,19 @@
 # YouTube Channel Summarizer
 
-Scripts to download YouTube channel metadata and transcripts and generate AI summaries.
+Scripts to download YouTube channel metadata and transcripts, then generate AI summaries.
+
+## Requirements
+
+- Python 3.12+
+- An OpenAI API key for summarization
 
 ## Installation
 
-1. Clone the repository and switch into it.
-2. (Optional) Create a virtual environment.
-3. Install dependencies:
-
 ```bash
+git clone <repository-url>
+cd yt_channel_summarizer
+python -m venv .venv && source .venv/bin/activate  # optional
 pip install -r requirements.txt
-pip install openai tiktoken orjson pyyaml python-dotenv tenacity tqdm
 ```
 
 ## Usage
@@ -31,7 +34,9 @@ Outputs are written under `data/raw/`:
 
 ### 2. Summarize transcripts
 
-`summarize.py` reads `data/raw/transcripts.jsonl` and produces CSV/Markdown summaries via the OpenAI API.
+`summarize.py` reads `data/raw/transcripts.jsonl` and produces CSV and Markdown summaries via the OpenAI API.
+
+Set your API key and run:
 
 ```bash
 export OPENAI_API_KEY=your_key
@@ -40,11 +45,32 @@ python summarize.py --config config/summarizer.yaml
 
 Summary files are written to `data/processed/`.
 
+### 3. Optional: extract plain transcript text
+
+Convert a transcript JSON file to plain text:
+
+```bash
+python scripts/extract_transcript_text.py data/raw/transcripts/{id}.json
+```
+
+Text files default to `data/transcript_text/`.
+
 ## Configuration
 
-Adjust `config/summarizer.yaml` to change model settings, prompts, chunk sizes, or output paths.
+Edit `config/summarizer.yaml` to adjust model settings, prompts, chunk sizes, and output paths.
+`MODEL` and `TEMPERATURE` environment variables override those values at runtime.
+
+## Development
+
+Run linters and tests before committing:
+
+```bash
+pre-commit run --files README.md
+pytest
+```
 
 ## License
 
 MIT
+
 
