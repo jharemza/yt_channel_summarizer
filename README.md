@@ -43,6 +43,14 @@ export OPENAI_API_KEY=your_key
 python summarize.py --config config/summarizer.yaml
 ```
 
+Alternatively, place a `.env` file in the project root (alongside this README) with the following structure:
+
+```
+OPENAI_API_KEY=your_key
+```
+
+The scripts automatically load environment variables from `.env` if present, so you can omit the `export` step when using this approach.
+
 Summary files are written to `data/processed/`.
 
 ### 3. Optional: extract plain transcript text
