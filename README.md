@@ -47,6 +47,9 @@ Alternatively, place a `.env` file in the project root (alongside this README) w
 
 ```text
 OPENAI_API_KEY=your_key
+# Optional overrides (otherwise, summarizer.py reads config/summarizer.yaml)
+# MODEL=gpt-40-mini
+# TEMPERATURE=0.2
 ```
 
 The scripts automatically load environment variables from `.env` if present, so you can omit the `export` step when using this approach.
