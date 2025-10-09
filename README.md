@@ -45,7 +45,7 @@ python summarize.py --config config/summarizer.yaml
 
 Alternatively, place a `.env` file in the project root (alongside this README) with the following structure:
 
-```
+```text
 OPENAI_API_KEY=your_key
 ```
 
@@ -80,5 +80,3 @@ pytest
 ## License
 
 MIT
-
-
