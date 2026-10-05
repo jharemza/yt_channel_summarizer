@@ -16,12 +16,15 @@ import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yt_dlp
 from youtube_transcript_api import (
     YouTubeTranscriptApi,
 )
+
+if TYPE_CHECKING:
+    from yt_dlp import _Params
 
 
 # ----------------------------
@@ -63,10 +66,9 @@ def ensure_dirs(base: Path) -> Dict[str, Path]:
 
 def _ydl() -> yt_dlp.YoutubeDL:
     # extract_flat avoids fetching formats; faster for listing
-    options: Dict[str, Any] = {
+    options: _Params = {
         "extract_flat": "in_playlist",
         "quiet": True,
-        "skip_download": True,
     }
     return yt_dlp.YoutubeDL(options)
 
