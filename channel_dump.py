@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -62,14 +63,12 @@ def ensure_dirs(base: Path) -> Dict[str, Path]:
 
 def _ydl() -> yt_dlp.YoutubeDL:
     # extract_flat avoids fetching formats; faster for listing
-    opts = {
+    options: Dict[str, Any] = {
         "extract_flat": "in_playlist",
         "quiet": True,
-        "nocheckcertificate": True,
         "skip_download": True,
-        "dump_single_json": True,
     }
-    return yt_dlp.YoutubeDL(opts)
+    return yt_dlp.YoutubeDL(options)
 
 
 def list_channel_videos(channel_url: str, max_videos: Optional[int] = None) -> List[VideoMeta]:
@@ -80,40 +79,40 @@ def list_channel_videos(channel_url: str, max_videos: Optional[int] = None) -> L
       - https://www.youtube.com/channel/UCxxxx
       - Any playlist (e.g., uploads)
     """
-    ydl = _ydl()
-    info = ydl.extract_info(channel_url, download=False)
+    if max_videos is not None and max_videos <= 0:
+        raise ValueError("max_videos must be greater than zero")
 
-    # --- normalize & clean ---
-    if isinstance(info, dict) and ("entries" in info):
-        # channel/playlist case; entries might be [] or contain junk
-        entries = info["entries"] or []
-    else:
-        # single-video case (or defensive fallback)
-        entries = [info] if info is not None else []
+    with _ydl() as ydl:
+        info = ydl.extract_info(channel_url, download=False)
 
-    # Clean: keep only dicts that actually have an 'id'
-    entries = [e for e in entries if isinstance(e, dict) and e.get("id")]
+    def video_entries(entry):
+        if not isinstance(entry, dict):
+            return
+        if "entries" in entry:
+            for child in entry["entries"] or []:
+                yield from video_entries(child)
+        elif entry.get("id") and entry.get("_type") not in {"playlist", "multi_video"}:
+            yield entry
 
     videos: List[VideoMeta] = []
-
-    for e in entries:
-        # Some entries are shallow (flat) dicts; use .get defensively
-        vid = e.get("id")
-        if not vid:
+    seen: set[str] = set()
+    for e in video_entries(info):
+        vid = e["id"]
+        if vid in seen:
             continue
-        url = f"https://www.youtube.com/watch?v={vid}"
+        seen.add(vid)
         videos.append(
             VideoMeta(
                 id=vid,
-                title=e.get("title", ""),
-                url=url,
+                title=e.get("title") or "",
+                url=f"https://www.youtube.com/watch?v={vid}",
                 uploader=e.get("uploader"),
-                upload_date=e.get("upload_date"),  # YYYYMMDD or None
-                duration=e.get("duration"),  # seconds or None
+                upload_date=e.get("upload_date"),
+                duration=e.get("duration"),
                 view_count=e.get("view_count"),
             )
         )
-        if max_videos and len(videos) >= max_videos:
+        if max_videos is not None and len(videos) >= max_videos:
             break
 
     return videos
@@ -239,6 +238,10 @@ def fetch_and_store(
     max_videos: Optional[int] = None,
     delay_s: float = 0.4,
 ) -> None:
+    if max_videos is not None and max_videos <= 0:
+        raise ValueError("max_videos must be greater than zero")
+    if not math.isfinite(delay_s) or delay_s < 0:
+        raise ValueError("delay_s must be a finite, non-negative number")
     paths = ensure_dirs(out_base)
 
     print(f"[1/3] Listing videos from: {channel_url}")
@@ -249,6 +252,7 @@ def fetch_and_store(
     write_manifest(paths["manifest_csv"], videos)
 
     print(f"[3/3] Fetching transcripts into: {paths['tx_dir']}")
+    fetched = False
     for i, v in enumerate(videos, start=1):
         print(f"  ({i}/{len(videos)}) {v.id}  {v.title!r}")
         rec_path = paths["tx_dir"] / f"{v.id}.json"
@@ -256,6 +260,9 @@ def fetch_and_store(
             print("    - already exists, skipping")
             continue
 
+        if fetched:
+            time.sleep(delay_s)
+        fetched = True
         variant = pick_transcript_variant(v.id, preferred_langs)
         if not variant:
             print("    - no transcript available")
@@ -282,9 +289,6 @@ def fetch_and_store(
         # append to combined JSONL
         append_jsonl(paths["transcripts_jsonl"], payload)
 
-        # polite delay (avoid hammering APIs)
-        time.sleep(delay_s)
-
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Dump YouTube channel videos + transcripts")
@@ -302,7 +306,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--delay", type=float, default=0.4, help="Delay between transcript fetches (seconds)"
     )
-    return p.parse_args()
+    args = p.parse_args()
+    if args.max is not None and args.max <= 0:
+        p.error("--max must be greater than zero")
+    if not math.isfinite(args.delay) or args.delay < 0:
+        p.error("--delay must be a finite, non-negative number")
+    return args
 
 
 def main():
