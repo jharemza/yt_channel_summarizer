@@ -130,7 +130,9 @@ class RateLimiter:
 
 def build_client() -> OpenAI:
     # OpenAI client uses OPENAI_API_KEY from env
-    return OpenAI()
+    api_key = os.getenv("SUMMARIZER_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+    return OpenAI(api_key=api_key)
 
 
 class TransientLLMError(Exception):
